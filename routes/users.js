@@ -1,14 +1,25 @@
 var express = require('express');
 var router = express.Router();
 const bodyParser = require('body-parser');
-var User = require('../models/user');
+var User = require('../model/user');
 var passport = require('passport');
-var urlencodedParser = bodyParser.urlencoded({extended: true});
 var authenticate = require('../authenticate');
+
 router.use(bodyParser.json());
+
 /* GET users listing. */
-router.get('/', function(req, res, next) {
-  res.send('respond with a resource');
+router.get('/',authenticate.verifyUser,authenticate.verifyAdmin, function(req, res, next) {
+  User.find({})
+  .then((users) => {
+    res.statusCode = 200;
+    res.setHeader('Content-Type','application/json');
+    res.json(users);
+  })
+  .catch((err) => {
+    res.statusCode = 500;
+    res.setHeader('Content-Type','application/json');
+    res.json({err: err});
+  });
 });
 
 router.post('/signup', (req, res, next) => {
@@ -29,37 +40,19 @@ router.post('/signup', (req, res, next) => {
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
           res.json({err: err});
-          return ;
+          return;
         }
         passport.authenticate('local')(req, res, () => {
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
           res.json({success: true, status: 'Registration Successful!'});
-        });
+      });
       });
     }
   });
 });
-router.post('/login',urlencodedParser,function (req, res, next) {
-    // call passport authentication passing the "local" strategy name and a callback function
-    passport.authenticate('local', function (error, user, info) {
-      // this will execute in any case, even if a passport strategy will find an error
-      // log everything to console
-      console.log(error);
-      console.log(user);
-      console.log(info);
 
-      if (error) {
-        res.status(401).send(error);
-      } else if (!user) {
-        res.status(401).send(info);
-      } else {
-        next();
-      }
-
-      res.status(401).send(info);
-    })(req, res);
-  }, (req, res) => {
+router.post('/login', passport.authenticate('local'), (req, res) => {
 
   var token = authenticate.getToken({_id: req.user._id});
   res.statusCode = 200;
@@ -79,5 +72,4 @@ router.get('/logout', (req, res) => {
     next(err);
   }
 });
-
 module.exports = router;
